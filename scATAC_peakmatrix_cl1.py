@@ -4,12 +4,12 @@ import sys
 import pysam
 import numpy as np
 import pandas as pd
+import getopt
 
-samname = sys.argv[1]
-barcodename = sys.argv[2]
-outputname = sys.argv[3]
-SRAname = sys.argv[4]
-keeplistfile = open("keepreads.txt",'w')
+keeplistfile = open("truecells.txt",'w')
+args = sys.argv[1:]
+samname,barcodename,outputname,SRAname = getopt.getopt(args,"s:b:o:r:")
+samname,barcodename,outputname,SRAname = samname[1],barcodename[1],outputname[1],SRAname[1]
 
 #open original sam file and barcode mapping file
 samfile = open(samname,"r")
