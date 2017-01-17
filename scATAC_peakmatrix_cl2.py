@@ -5,9 +5,9 @@ import pysam
 import numpy as np
 import pandas as pd
 
-bamname = sys.argv[1]
-peaksname = sys.argv[2]
-numpeaks = sys.argv[3]
+args = sys.argv[1:]
+bamname,peaksname,numpeaks = getopt.getopt(args,"b:p:n:")[0]
+bamname,peaksname,numpeaks = bamname[1],peaksname[1],numpeaks[1]
 
 samfile = pysam.AlignmentFile(bamname, "rb")
 peaks = open(peaksname,"r")

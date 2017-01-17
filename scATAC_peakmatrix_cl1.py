@@ -8,7 +8,7 @@ import getopt
 
 keeplistfile = open("truecells.txt",'w')
 args = sys.argv[1:]
-samname,barcodename,outputname,SRAname = getopt.getopt(args,"s:b:o:r:")
+samname,barcodename,outputname,SRAname = getopt.getopt(args,"s:b:o:r:")[0]
 samname,barcodename,outputname,SRAname = samname[1],barcodename[1],outputname[1],SRAname[1]
 
 #open original sam file and barcode mapping file
