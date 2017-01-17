@@ -1,12 +1,11 @@
 #CUSTOM SCRIPT FOR CREATING MATRIX OF ACCESSIBILITY PER CELL PER AGGREGATE PEAK
-#user must input number of peaks in the peak file and cells as the first command line arguments
+#version to execute from an IDE, not optimized for command line
 import sys
 import pysam
 import numpy as np
 import pandas as pd
 
 numpeaks = 38995 
-#numpeaks = sys.argv[1]
 
 #open original sam file and barcode mapping file
 samfile = open("SRR1947692_MQ_dedup_noM.sorted.sam","r")
