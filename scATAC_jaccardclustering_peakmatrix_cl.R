@@ -28,5 +28,7 @@ Assignments$Order = as.numeric(Assignments$Order)
 Assignments = Assignments[order(Assignments$Order),]
 legendnames = as.character(unique(Assignments$CellTypeAssignment))
 legendnames = legendnames[!is.na(legendnames)]
+pdf(figuretitle + ".pdf",width=6,height=6)
 plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main=figuretitle,col=Assignments$CellTypeAssignment)
 legend('bottomleft', pch=c(2,2), col=1:3, legendnames, bty='n', cex=.9, box.col='darkgreen')
+dev.off()
