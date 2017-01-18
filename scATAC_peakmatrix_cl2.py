@@ -4,6 +4,7 @@ import sys
 import pysam
 import numpy as np
 import pandas as pd
+import getopt
 
 args = sys.argv[1:]
 bamname,peaksname,numpeaks = getopt.getopt(args,"b:p:n:")[0]
@@ -11,7 +12,7 @@ bamname,peaksname,numpeaks = bamname[1],peaksname[1],numpeaks[1]
 
 samfile = pysam.AlignmentFile(bamname, "rb")
 peaks = open(peaksname,"r")
-keeplistfile = open("keepreads.txt",'r')
+keeplistfile = open("truecells.txt",'r')
 
 numcells = len(keeplistfile.readlines())
 keeplistfile.seek(0); keeplist = []
