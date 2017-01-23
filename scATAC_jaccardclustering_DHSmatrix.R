@@ -3,15 +3,16 @@ library(proxy)
 setwd("~/Documents/LeslieLab/CusanovichData_Processed")
 
 #original code
-DHSmatrix = read.delim('GSM1647122_GM12878vsHEK.dhsmatrix.txt',header=F,stringsAsFactors = F)
+DHSmatrix = read.delim('GSM1647123_GM12878vsHL.dhsmatrix.txt',header=F,stringsAsFactors = F)
 barcodes = cbind(as.character(t(DHSmatrix[1,])),c(-3:(ncol(DHSmatrix)-4)))[5:704,]
 barcodes = as.data.frame(barcodes,stringsAsFactors = F)
 setnames(barcodes,c("Barcode","Order"))
 DHSmatrix = DHSmatrix[2:nrow(DHSmatrix),5:ncol(DHSmatrix)]
 DHSmatrix[DHSmatrix>1]<-1
 
-DHSmatrix = sapply(DHSmatrix, as.numeric)
-distances = dist(DHSmatrix,method="manhattan",by_rows=F)
+
+DHSmatrix1 = sapply(DHSmatrix, as.numeric)
+distances = dist(DHSmatrix1,method="jaccard",by_rows=F)
 fit <- cmdscale(distances,eig=TRUE, k=2)
 x <- fit$points[,1]
 y <- fit$points[,2]
@@ -19,6 +20,16 @@ y <- fit$points[,2]
 Assignments = read.delim('GSM1647123_GM12878vsHL.readcounts.txt',header=T)
 Assignments = merge(barcodes,Assignments,by='Barcode')
 
-#png("${RESULTS}/test.png",height=800,width=800)
+
 plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="GM12878 vs HL-60, Manhattan Distance",col=Assignments$CellTypeAssignment,ylim = c(-1000,300), xlim =c(-150,1000))
+legend('bottomleft', pch=c(2,2), col=1:3, c('GM12878', 'HL-60','Mixed'), bty='n', cex=.9, box.col='darkgreen')
+
+#if you want to subset just cell types
+DHSmatrix2 = DHSmatrix[(Assignments$CellTypeAssignment=="GM12878" & !is.na(Assignments$CellTypeAssignment)),]
+DHSmatrix2 = sapply(DHSmatrix2, as.numeric)
+distances = dist(DHSmatrix2,method="jaccard",by_rows=F)
+fit <- cmdscale(distances,eig=TRUE, k=2)
+x <- fit$points[,1]
+y <- fit$points[,2]
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="GM12878 vs HL-60, Manhattan Distance",col=Assignments$CellTypeAssignment)
 legend('bottomleft', pch=c(2,2), col=1:3, c('GM12878', 'HL-60','Mixed'), bty='n', cex=.9, box.col='darkgreen')
