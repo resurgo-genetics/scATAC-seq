@@ -25,11 +25,13 @@ plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="GM12878 vs HL-60, Manh
 legend('bottomleft', pch=c(2,2), col=1:3, c('GM12878', 'HL-60','Mixed'), bty='n', cex=.9, box.col='darkgreen')
 
 #if you want to subset just cell types
-DHSmatrix2 = DHSmatrix[(Assignments$CellTypeAssignment=="GM12878" & !is.na(Assignments$CellTypeAssignment)),]
+#have to fix this, it is elminating rows instead of columns
+#is this also a problem with the other script i have for my own peaks?
+DHSmatrix2 = DHSmatrix[,(Assignments$CellTypeAssignment=="GM12878" & !is.na(Assignments$CellTypeAssignment))]
 DHSmatrix2 = sapply(DHSmatrix2, as.numeric)
 distances = dist(DHSmatrix2,method="jaccard",by_rows=F)
 fit <- cmdscale(distances,eig=TRUE, k=2)
 x <- fit$points[,1]
 y <- fit$points[,2]
-plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="GM12878 vs HL-60, Manhattan Distance",col=Assignments$CellTypeAssignment)
-legend('bottomleft', pch=c(2,2), col=1:3, c('GM12878', 'HL-60','Mixed'), bty='n', cex=.9, box.col='darkgreen')
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="GM12878 Subtypes, Jaccard Distance, DHS Peaks")
+legend('bottomleft', pch=c(1), col=1, 'GM12878', bty='n', cex=.9, box.col='darkgreen')
