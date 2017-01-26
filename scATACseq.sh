@@ -37,10 +37,11 @@
 		#run first part of script
 		python /Users/cass/Documents/LeslieLab/Git_Repo/scATAC-seq/scATAC_peakmatrix_cl1.py -s SRR1947692_MQ_dedup_noM.sorted.sam -b GSM1647122_GM12878vsHEK.indexconversion.txt -o test.sam -r SRR1947692
 		#add header back, convert to bam, and index output
+		#when using older version of samtools, may need to add a -S option for view command
 		cat header.txt test.sam > test_header.sam
 		samtools view -b test_header.sam > test_header.bam
 		samtools index test_header.bam
 		
 		#run second part of script
-		python /Users/cass/Documents/LeslieLab/Code/scATAC_peakmatrix_cl2 -b test_header.bam -p SRR1947692_peaks_new.bed -n 38995
+		python /Users/cass/Documents/LeslieLab/Code/scATAC_peakmatrix_cl2.py -b test_header.bam -p SRR1947692_peaks_new.bed -n 38995
 	#clustering in R

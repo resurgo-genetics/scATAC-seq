@@ -35,3 +35,7 @@ x <- fit$points[,1]
 y <- fit$points[,2]
 plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="GM12878 Subtypes, Jaccard Distance, DHS Peaks")
 legend('bottomleft', pch=c(1), col=1, 'GM12878', bty='n', cex=.9, box.col='darkgreen')
+
+#plotting correlation between read depth and coordinate 1
+y = -log10(Assignments$TotalReads)
+plot(x2,y,xlab="log10(Read Depth)", ylab="Coordinate 1")

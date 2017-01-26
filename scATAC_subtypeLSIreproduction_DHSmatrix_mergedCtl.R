@@ -3,34 +3,29 @@ library(proxy)
 setwd("~/Documents/LeslieLab/CusanovichData_Processed")
 
 #original code
-DHSmatrix = fread('test.txt',header=F,stringsAsFactors = F,sep =",")
+#DHSmatrix = fread('CtlSetMerged.dhsmatrix.txt',header=F,stringsAsFactors = F,sep =",")
+#saveRDS(DHSmatrix, 'CtlSetMerged.dhsmatrix.RDS')
+#DHSmatrix = readRDS('CtlSetMerged.dhsmatrix.RDS')
+DHSmatrix = readRDS('CtlSetMerged.dhsmatrix.GM12878only.RDS')
 barcodes = cbind(as.character(t(DHSmatrix[1,])),c(-4:(ncol(DHSmatrix)-5)))[6:ncol(DHSmatrix),]
 barcodes = as.data.frame(barcodes,stringsAsFactors = F)
 setnames(barcodes,c("Barcode","Order"))
-DHSmatrix = DHSmatrix[2:nrow(DHSmatrix),5:ncol(DHSmatrix)]
-DHSmatrix[DHSmatrix>1]<-1
+DHSmatrix = DHSmatrix[2:nrow(DHSmatrix),6:ncol(DHSmatrix)]
 Assignments = read.delim('GSM1647124_CtlSet1.readcounts.txt',header=T)
 Assignments = rbind(Assignments,read.delim('GSM1647125_CtlSet2.readcounts.txt',header=T))
 Assignments = rbind(Assignments,read.delim('GSM1647126_CtlSet3.readcounts.txt',header=T))
 Assignments = merge(barcodes,Assignments,by='Barcode',all.x=T)
 
 
-DHSmatrix1 = sapply(DHSmatrix, as.numeric)
-distances = dist(DHSmatrix1,method="jaccard",by_rows=F)
-fit <- cmdscale(distances,eig=TRUE, k=2)
-x <- fit$points[,1]
-y <- fit$points[,2]
-
-
-
-plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",main="GM12878 vs HL-60, Manhattan Distance",col=Assignments$CellTypeAssignment,ylim = c(-1000,300), xlim =c(-150,1000))
-legend('bottomleft', pch=c(2,2), col=1:3, c('GM12878', 'HL-60','Mixed'), bty='n', cex=.9, box.col='darkgreen')
-
+#remove cells with < 400 and sites with < 150
 #if you want to subset just cell types
-#have to fix this, it is elminating rows instead of columns
-#is this also a problem with the other script i have for my own peaks?
-DHSmatrix2 = DHSmatrix[,(Assignments$CellTypeAssignment=="GM12878" & !is.na(Assignments$CellTypeAssignment))]
-DHSmatrix2 = sapply(DHSmatrix2, as.numeric)
+#DHSmatrix = subset(DHSmatrix,select=(Assignments$CellTypeAssignment=="GM12878" & !is.na(Assignments$CellTypeAssignment)))
+#rm(DHSmatrix)
+#saveRDS(DHSmatrix1, 'CtlSetMerged.dhsmatrix.GM12878only.RDS')
+DHSmatrix1 = sapply(DHSmatrix, as.numeric)
+DHSmatrix1 = DHSmatrix[rowSums(DHSmatrix)>=150,]
+DHSmatrix2 = DHSmatrix1[,colSums(DHSmatrix1)>=400]
+saveRDS(DHSmatrix2, 'CtlSetMerged,dhsmatrix.GM12878only.reduced.RDS')
 distances = dist(DHSmatrix2,method="jaccard",by_rows=F)
 fit <- cmdscale(distances,eig=TRUE, k=2)
 x <- fit$points[,1]
