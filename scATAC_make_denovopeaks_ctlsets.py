@@ -17,7 +17,7 @@ newsamfile = open("SRR1947694_MQ_dedup_noM_barcodes_500.sorted.sam","w")
 barcodes ={};cellcount = {}
 for line in barcodefile.readlines():
     line = line.split()
-    barcodes["SRR1947696." + line[0]] = line[2]
+    barcodes["SRR1947694." + line[0]] = line[2]
     cellcount[line[2]] = 0
 barcodefile.close()
 
@@ -58,16 +58,18 @@ samfile.close()
 #have to stop here, add header, convert to bam, and make new index file
 
 #open new sam file with pysam and peaks file
-samfile = pysam.AlignmentFile("SRR1947696_MQ_dedup_noM_barcodes_500_header.sorted.bam", "rb")
-peaks = open("SRR1947696_peaks.bed","r")
+samfile = pysam.AlignmentFile("SRR1947694_MQ_dedup_noM_barcodes_500_header.sorted.bam", "rb")
+peaks = open("SRR1947694_peaks.bed","r")
 
 #intialize matrix to store data; x counts the number of cells
 peakmatrix = np.zeros((len(keeplist), numpeaks+1),dtype=int)
 
 #loop through peaks, store count in matrix
 i = 0
+chrs = []; starts = []; stops=[]
 for peak in peaks.readlines():
     peak = peak.split()
+    chrs.append(peak[0]); starts.append(peak[1]); stops.append(peak[2])
     #loop through all reads aligning to that peak
     for read in samfile.fetch(peak[0], int(peak[1]), int(peak[2])):
         cellnum = str(read).split()[0]
@@ -75,5 +77,7 @@ for peak in peaks.readlines():
         peakmatrix[int(keeplist.index(cellnum)),i]+=1
     i+=1
 
-df = pd.DataFrame(peakmatrix,index=keeplist)
-df.to_csv("PeakMatrix_Ctl1.csv")
+peakmatrix = pd.DataFrame(peakmatrix,header=keeplist)
+peakmatrix = peakmatrix.transpose()
+peakmatrix['chr'] =  chrs; peakmatrix['start'] =  starts; peakmatrix['stop'] =  stops;
+peakmatrix.to_csv("PeakMatrix_Ctl1.csv")
