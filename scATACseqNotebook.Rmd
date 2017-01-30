@@ -2,7 +2,10 @@
 title: "scATAC-seq Notebook"
 author: "Cassandra Burdziak"
 date: "January 27, 2017"
-output: pdf_document
+output: 
+  pdf_document:
+    fig_width: 2
+    fig_height: 2
 ---
 
 ```{r setup, include=FALSE}
@@ -28,6 +31,7 @@ Modified R script for Jaccard distance multidimensional scaling to be only consi
 1. Aligned SRR1947694 and SRR1947695, the two Control sets of GM12878 and HL-60 mixtures, and processed + called peaks using Homer.
 
 2. Modified scATAC_jaccardclustering_DHSmatrix.R to include code for subsetting the full DHS matrix file for GM12878 and HL-60 mixtures (the original set, not one of the controls) to include only GM12878 cells and to perform Jaccard distance multidimensional scaling to see subtype clusters.  No very distinct subtype clusters were found but more were found than with only ATAC-seq peaks. Github updated.
+
 
 ![Multidimensional scaling on Jaccard distances between cell subtypes of GM12878, data from Cusanovich et al.](/Users/cass/Documents/LeslieLab/NewAnalysis/GM12878subtypes_Jaccard_DHSpeaks.pdf)
 
@@ -102,3 +106,17 @@ The result is a file which contains the original site coordinates repeated for a
 4. Yesterday I updated the file names on github and ended up just creating entirely new files instead of committing to the original ones.  All the commits I have up until yesterday were deleted.  This is fine since all the new files are working properly and should include all the code I used to generate each of the figures I have retained up to this point.
 
 5. Modified code for generating peak matrix from de novo peaks for control files to include the coordinates of the peaks in the output.  The output matrix will also be transposed compared to the original form (it will now be the same as the DHS peak matrices from the authors, with the rows corresponding to sites and the columns corresponding to cells).  
+
+##January 30th
+
+1. Executed binary distance function (from amap) in R on the Weill Cornell server and simulataneously running the jaccard distance function (from proxy) on my local machine for the GM12878-only merged control file (merged matrix of authors data on GEO) of DHS sites vs. cells.  Time to compute distance matrix is very long. 
+
+2. Jaccard distance function from proxy seemed to finish much faster on local machine then the binary distance calculation on amap.  I ran a t-sne on this distance matrix and discovered that there are no identifiable cell subtypes.  I should repeat this using only GM12878 peaks.
+
+![t-SNE on Jaccard distances of GM12878 cells only in matrix of cells in control experiments versus cell-type specific DHS peaks, merged matrix of processed data from Cusanovich et al. ](/Users/cass/Documents/LeslieLab/NewAnalysis/GM12878subtypes_tsne_ctlset.pdf)
+
+3. Edited python code for subsetting sites with usage in < 150 cells to also subset non-GM12878 specific sites.  Running this on the server to produce a new file CtlSetMerged.dhsmatrix.rowreduced_gmonly.csv which will then need to be downloaded and passed to the same R script for removal of the appropriate columns.
+
+4. Edited R code for subsetting cells < 400 sites used AND non-GM12878 cells to *retain* the non-GM12878 cells.  In other words, the output includes both HL-60 and GM12878 cell mixtures.  This will allow me to test whether the existing clustering methods can separate out the cell types, since so far with t-sne they are failing to separate out cell subtypes.
+
+5.  Currently running 2 jobs on the server: one will produce the distance matrix for all sites with only GM12878 cells; the other will produce distance matrices for both sites and cells with mixtures of GM12878 cells and HL-60 cells.  Also running a job for the python script to output row reduced CSV with only GM12878 specific sites; the output of this script will need to be passed to the R script for further reduction for only the GM12878 cell subtypes. Distance matrices will then need to be produced for these. In the end I will have six distance matrices ,3 for cells ad 3 for sites, corresponding to the following mixtures of cells/sites: GM12878 subtypes with all DHS sites, GM12878 subtypes with only GM12878-specific sites, GM12878/HL-60 mixture with all DHS sites. All will be subsetted to remove cells/sites with little data.
