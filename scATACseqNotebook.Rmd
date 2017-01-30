@@ -1,0 +1,104 @@
+---
+title: "scATAC-seq Notebook"
+author: "Cassandra Burdziak"
+date: "January 27, 2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Document originally created January 23rd, 2017.  Transferred to R Markdown file on January 27th, 2017.
+
+##January 10-January 22 (retrospective notes):
+
+1. Used DHS matrices provided in the tarball on GEO to reproduce Jaccard distances multidimensional scaling. I was able to reproduce them perfectly except the direction for the HL-60 vs. GM12878 figure was a mirror image of the original (irrelevant because sign is arbitrary with the distance function).
+
+2. Wrote pipeline to align, process (sort, remove mitochondrial reads, remove duplicate reads, covert formats to bam), and call peaks on single-cell ATAC-seq reads. Ran pipeline on the HEK293T vs GM12878 and HL-60 vs GM12878 (not the control set) datasets on SRA.
+
+3. Wrote custom python script which uses output sam file, peak file, and file provided by the authors which maps barcodes to each read name to create matrix of peak read count by cell. Used the “Updated” barcode name in this index conversion file, and removed any reads which contained a “CTF” or “AMBIG” element in the updated barcode. These were selected for by removing reads whose barcodes contained an underscore.  Reads corresponding to barcodes for which there were fewer than 500 reads were also excluded.
+
+4. Modified R script to create Jaccard distance multidimensional scaling to be used on the output of my script to produce matrix of peak read count per cell.
+Modified R script for Jaccard distance multidimensional scaling to be only consider subtypes of GM12878 (by subsetting only cells who were given this assignment in the paper) and to include k-means procedure on the data in this matrix.  A script was also written to perform k-means on the features from Jaccard distance multidimensional scaling, and to create a heat map of these components from multidimensional scaling.
+
+5. To see whether read count per cell was correlated with coordinate one in Jaccard distance multidimensional scaling, modified python script to produce a read count per cell in the final set of cells and wrote out to file.  Added some code to R scripts to import this file and plot the log (base 10) of these values against the output coordinate 1 from multidimensional scaling using Jaccard distances.
+
+
+##January 23rd
+1. Aligned SRR1947694 and SRR1947695, the two Control sets of GM12878 and HL-60 mixtures, and processed + called peaks using Homer.
+
+2. Modified scATAC_jaccardclustering_DHSmatrix.R to include code for subsetting the full DHS matrix file for GM12878 and HL-60 mixtures (the original set, not one of the controls) to include only GM12878 cells and to perform Jaccard distance multidimensional scaling to see subtype clusters.  No very distinct subtype clusters were found but more were found than with only ATAC-seq peaks. Github updated.
+
+![Multidimensional scaling on Jaccard distances between cell subtypes of GM12878, data from Cusanovich et al.](/Users/cass/Documents/LeslieLab/NewAnalysis/GM12878subtypes_Jaccard_DHSpeaks.pdf)
+
+
+3.  Wrote R script to handle large merged DHS site matrix from the three control studies.  Major difference from previous code is that it has different indexing to create barcode data frame and uses read count files for all three control sets at once.  Does both the full Jaccard clustering and the subtype clustering.
+
+4. I had accidentally forgotten to re-submit the alignment for SRR1947695 after killing the job due to an error I found in the shell script.  I re-submitted it now.  SRR1947696 is also now aligned, processed, and has had peaks called with Homer.  Downloading to local machine so that the alignments and peak bed files may be used to create the peak matrices with my custom script.
+
+5. Preliminary, but it appears that the number of cells I am able to find in the DHS matrices that are provided on GEO for the three control experiments differs from that which is reported in the paper.  I am so far seeing 13835.  I will inspect this more tomorrow.
+
+##January 24th
+
+1. Alignment for SRR1947695 failed because I accidentally left the fastq files gzipped and the rsync failed. Unzipped them and resubmitted the job.
+
+2. Downloaded peak files to local machine for SRR1947694 and SRR1947696.  When attempting to create peak matrix with custom script, a key error is thrown when looking up a read name in the barcode dictionary. It was subsequently discovered that the index conversion file provided by the authors does not contain as many read names as there are in the sam file.  Precisely, a key error is thrown for read SRR1947696.19242073 and there are only 16676421 reads in the index conversion file. I re-downloaded the index conversion file and checked the alignment script to ensure that there had not been a mix-up on my part.  Correct mapping between SRA and index files was also checked on GEO. Did a grep for one of the missing read names in the original fastq files and it is definitely there.
+
+3. Created SRR1947696 matrix with missing reads.  Saved as PeakMatrix_Ctl3.csv. Accidentally wrote over the original peak matrix file for the HEK293T vs GM12878 dataset but it can be recreated easily with the script if needed.
+
+4. Saved binary R files for complete and subsetted GM12878 matrix to hopefully reduce time to import and process data.
+
+##January 25th
+
+1. Alignment completed for SRR1947695 last night.  Files saved on server.
+
+2. Saved new binary R fine CtlSetMerged.dhsmatrix.GM12878only.reduced.RDS which contains the DHS peak file with only cells labelled as GM12878 and without any cells with < 400 sites and sites used in < 150 cells (as in the paper).  Actually I believe there is a mistake since it has the same number of elements as the GM12878 matrix.  Using sapply with as.numeric is very slow but I think it will be necessary to subset rows/columns by a numeric value.
+
+##January 26th
+
+1. I uploaded CtlSetMerged.dhsmatrix.GM12878only.RDS to the server and wrote a script in R to read this in, convert all entries to numerics, subset the rows/columns, and save it is a new file. Even having done this on a 100GB node, R threw an exception at a single vector being > 80Gb.  I have resorted to using a python script to remove these columns and rows on the original (containing both GM12878 and HL-60 entries) CtlSetMerged.dhsmatrix.txt file.  I discovered that their were additional columns with strings (‘Gmspecific’) in the middle of the file which had been a problem for the R row and column summation all along (these were a result of the merge in pandas).  The python script was written so that the output would not include these columns.
+
+2. Found that some part of the sam file for SRR1947695 must have failed to download to local machine because file is much larger on server than on local machine. 
+
+3. In creating the data matrix for SRR1947694, finished first half of script (prior to adding header, converting to bam, and indexing) yesterday and then wrote over keeplist variable in producing SRR1947695.  I am still using the barcodes_500 output sam for SRR1947694 from yesterday but re-generating keeplist by running code again.  This should not have any effect on the output.
+
+4. Performed t-sne using Jaccard distance matrix as input on GM12878 vs. HL-60 dataset (SRR1947693) and GM12878 vs. HEK293T dataset (SRR1947692) using the DHS matrix files produced by the authors.  Got very good separation between the cell types with this method, which was used by Dr. Ren’s lab from UCSD first and was introduced to us this week at a talk he gave.
+
+![t-SNE on Jaccard distances between cells in mixture of HL-60 and GM12878 (SRR1947693), processed data from Cusanovich et al.](/Users/cass/Documents/LeslieLab/NewAnalysis/GM12878vsHL60_jaccardtsne.pdf)
+
+![t-SNE on Jaccard distances between cells in mixture of HEK293T and GM12878 (SRR1947692), processed data from Cusanovich et al.](/Users/cass/Documents/LeslieLab/NewAnalysis/GM12878vsHEK293T_jaccardtsne.pdf)
+
+5. Had to remake de novo ATAC-seq peak matrices from existing bam files (re-generating the keeplist each time) as they had been written over accidentally.  Then performed the same analysis as above (t-sne with Jaccard distance input) on my own de novo peaks. I found that clustering is not as useful when using t-sne with the Jaccard distances on the de novo peaks.  For instance, without the labels in the HL-60 vs. GM12878 plot, it would be unclear how many cell types are present.  Still, the cells are separated fairly reliably.  
+
+![t-SNE on Jaccard distances between cells in mixture of HL-60 and GM12878 (SRR1947693), de novo peaks called on raw data from Cusanovich et al.](/Users/cass/Documents/LeslieLab/NewAnalysis/GM12878vsHL60_jaccardtsne_denovopeaks.pdf)
+
+![t-SNE on Jaccard distances between cells in mixture of HEK293T and GM12878 (SRR1947692), de novo peaks called on raw data from Cusanovich et al.](/Users/cass/Documents/LeslieLab/NewAnalysis/GM12878vsHEK_jaccardtsne_denovopeaks.pdf)
+
+6. Completed subsetting rows and columns with python script in merged control sets of both HL-60 and GM12878 cell populations.  I realized that I will need the original columns with the original indexing for the GM12878 subsetting to work.  I will have to modify the R code to subset the file CtlSetMerged.dhsmatrix.rowreduced.csv, map these to cell type first, and then use a tab-delimited one line file of booleans for the columns that should be kept in columnsbool.txt to choose the columns to keep.  Then I can subset the GM12878 cells. 
+
+##January 27th
+
+1. Needed to do a complete re-do of the python subsetting script.  In the end I just decided to use the cut function in unix to remove the problematic columns containing the “Gmspecific” entries.  This will not affect the results of the analysis; the goal of the python and R scripts was to do this in addition to reformatting, but it is easiest at this point to do it from command line.  Used the following commands to extract the columns which contained data and concatenated them back together:
+
+```
+cut -d, -f1-4543 CtlSetMerged.dhsmatrix.txt > one.txt
+cut -d, -f4545-9125 CtlSetMerged.dhsmatrix.txt > two.txt
+cut -d, -f9127-13840 CtlSetMerged.dhsmatrix.txt > three.txt
+paste -d, one.txt two.txt three.txt > CtlSetMerged.dhsmatrix_dataonly.txt
+```
+
+Then used python script to convert to integers, remove rows which were too sparse using the criteria specified in Cusanovich et al.  Wrote an R script following this to retain only GM12878 cells and to subset columns.  It should be noted that the cell counts and site counts differ from what the authors ended up with even though the same criteria was used, but there was also a discrepancy with the cell count in the original (unfiltered) DHS peak files vs. what they state is the total cell count in the paper.  It is currently unclear what accounts for this discrepancy.  Precisely, we end up with 35526 rows (sites) retained in the matrix and 4705 columns (cells) when all subsetting for small count cells/sites is done and only GM12878 cells are retained.
+
+2. Used bedtools to merge retained sites with usage in > 150 cells with the Broad’s chromHMM GM12878 browser data obtained from the table browser on UCSC genome browser for hg19.  The command used was as follows:
+
+```
+bedtools intersect -a CtlSetMerged.dhsmatrix.GMfullyreduced.sites.sorted.bed -b hg19chromHMM.bed -wa -wb  > CtlSetMerged.dhsmatrix.GMfullyreduced.annotated_sites.bed 
+```
+
+The result is a file which contains the original site coordinates repeated for as many times as they had any overlap with the chrommHMM annotations.  The resulting file was around double the original file (77340 lines) indicating that on average there were around 2 overlaps with chromHMM annotations per site.  This was unfortunately high, since we hoped to map each site unambiguously to a chromatin class.
+
+3. Wrote a script in R to perform a t-sne with Jaccard distances on the merged control matrix of DHS peaks from the authors. The intersected accessible site and chromHMM annotation file was read in.  The unique() function was used to remove duplicates for each site such that whichever of multiple annotations per site occurred first was assigned to that site.  This is an unideal solution.  In the future I should look into how dissimilar the annotations were per site to see if this is really viable.  This is only meant to be a first approximation.  The script then calculates pairwise Jaccard distances between each of the cells and plots a t-sne based on these distances.  It does the same for distances between cells and colors the plot based on the assignment to each annotation type.
+
+4. Yesterday I updated the file names on github and ended up just creating entirely new files instead of committing to the original ones.  All the commits I have up until yesterday were deleted.  This is fine since all the new files are working properly and should include all the code I used to generate each of the figures I have retained up to this point.
+
+5. Modified code for generating peak matrix from de novo peaks for control files to include the coordinates of the peaks in the output.  The output matrix will also be transposed compared to the original form (it will now be the same as the DHS peak matrices from the authors, with the rows corresponding to sites and the columns corresponding to cells).  
