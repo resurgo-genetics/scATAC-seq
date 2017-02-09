@@ -38,7 +38,7 @@ tsne1 = Rtsne(distances,is_distance=T,verbose=T)
 plot(tsne1$Y[,1],tsne1$Y[,2], xlab = "",ylab='',main="Clustering of GM12878 and HL-60 Mixture by Site Usage",col=Assignments$CellTypeAssignment)
 
 #t-sne on sites; replace distance file for non-HL-60 specific
-distances2 = readRDS("")
+distances2 = readRDS("CtlSetMerged.dhsmatrix.fullyreduced.site_distances.RDS")
 tsne2 = Rtsne(distances2,is_distance=T,verbose=T)
 plot(tsne2$Y[,1],tsne2$Y[,2], xlab = "",ylab='',col=annots$V8,main="Clustering of Accessible Sites by GM12878 Subtype Coordination")
 
