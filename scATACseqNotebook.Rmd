@@ -120,3 +120,108 @@ The result is a file which contains the original site coordinates repeated for a
 4. Edited R code for subsetting cells < 400 sites used AND non-GM12878 cells to *retain* the non-GM12878 cells.  In other words, the output includes both HL-60 and GM12878 cell mixtures.  This will allow me to test whether the existing clustering methods can separate out the cell types, since so far with t-sne they are failing to separate out cell subtypes.
 
 5.  Currently running 2 jobs on the server: one will produce the distance matrix for all sites with only GM12878 cells; the other will produce distance matrices for both sites and cells with mixtures of GM12878 cells and HL-60 cells.  Also running a job for the python script to output row reduced CSV with only GM12878 specific sites; the output of this script will need to be passed to the R script for further reduction for only the GM12878 cell subtypes. Distance matrices will then need to be produced for these. In the end I will have six distance matrices ,3 for cells ad 3 for sites, corresponding to the following mixtures of cells/sites: GM12878 subtypes with all DHS sites, GM12878 subtypes with only GM12878-specific sites, GM12878/HL-60 mixture with all DHS sites. All will be subsetted to remove cells/sites with little data.
+
+##January 31st
+1. It appears as though something went wrong with the python script to reduce the rows of the merged control matrix by both cell usage count and GM12878-specificity as only 3311 rows were retained. I performed a grep on the original matrix file (not subsetted at all) to pull out rows which contained a "Gmspecific" or "Hlspecific" annotations into two repsective files.  The total number of sites in these files was 142713 (88561 HL-60 specific and 54152 GM12878 specific) out of 221000 lines total. To identify the source of all these missing sites, I created a file which contains lines with neither "Gmspecific" or "Hlspecific" annotations. This file contained 78287 lines, which is the expected number of un-annotated lines based on the numbers above.  Discovered that there are a number of sites annotated as "Common" in the dataset.  I wish to include these in the matrix for the analysis of the GM12878 subtypes.  There were still however 25118 sites unaccounted for.  These other ones have no annotation in the merged file.  I am going to keep these unknown sites in the analysis and investigate later where they came from.
+
+2. I used grep to remove any lines which contained an "Hlspecific annotation".  I will then run the same script as that which was used originally (*scATACseq_subsetmergedCtl.py*) and not the modified version to remove any sites with usage in < 150 cells.  Thus I am only eliminating HL-60 specific sites and retaining the Common, GM12878-specific, and un-annotated sites in the file.  I may try later again with removal of the un-annotated sites. The only modification to the file was changing the filenames to use the *CtlSetMerged.dhsmatrix_dataonly_noHL.txt* file. There were 132439 sites in this file prior to row reduction, and there are 30131 sites in the output.
+
+3. Created two new R scripts which are modifications of the original R script for t-sne and MDS clustering on Jaccard distances.  Both now take the R binary file of distance matrices as input.  In addition, one file is meant for the GM12878-only matrix with sparse rows/columns removed.  It can be used with the file containing all sites and the file containing no HL-60 specific sites, and later the file without the un-annotated sites.  The other is meant for the HL-60 and GM12878 cell mixture with sparse rows/columns removed.  They are named *scATAC_jaccardtsneMDS_RDSinput_GMsubtypes.R* and *scATAC_jaccardtsneMDS_RDSinput_HLvsGM.R* respectively.
+
+4. Created file *CtlSetMerged.dhsmatrix.GMfullyreduced_noHL.csv* by subsetting columns in R which were non-GM12878 and which used < 400 sites.  Uploaded this file on the server and submitted job to produce new distance matrices for both sites and cells.  Also created new bed file of the sites retained *CtlSetMerged.dhsmatrix.GMfullyreduced_noHL.sites.bed* and merged with chromHMM annotations to produce file *CtlSetMerged.dhsmatrix.GMfullyreduced_noHL.annotated_sites.bed* using the command:
+```
+bedtools intersect -a CtlSetMerged.dhsmatrix.GMfullyreduced_noHL.sites.bed -b hg19chromHMM.bed \
+-wa -wb  > CtlSetMerged.dhsmatrix.GMfullyreduced_noHL.annotated_sites.bed
+```
+
+This actually wasn't totally necessary since the noHL site set should be a subset of the other annotated site file for all sites in the GMfullyreduced matrix.
+
+5. Had to create new CtlSetMerged.dhsmatrix.fullyreduced.csv because it seems I forgot to add the coordinate columns at the beginning of the file. Created new annotated sites file for GM12878 and HL-60 mixture (this is actually necessary, since some sites may be retained in this file which were not retained in the GMfullyreduced set). Used the following command:
+
+```
+bedtools intersect -a CtlSetMerged.dhsmatrix.fullyreduced.sites.bed -b ../hg19chromHMM.bed \
+-wa -wb  > CtlSetMerged.dhsmatrix.fullyreduced.annotated_sites.bed
+```
+
+6. Realized that I have exactly the same number of sites retained in HL-60/GM12878 mixture as I do in the GM12878-only file.  There is a mistake in my python script to remove sites which are used in < 150 cells: I am considering both HL-60 and GM12878 cells, so when I want to only look at GM12878 I should be doing a second subset in R to again remove additional rows which have a sum of < 150.  I will have to re-create the GMfullyreduced files both containing HL-60 sites and not, and then I will have to recreate the distance matrices for both. I have decided to just run the same script on the GMfullyreduced file because this should only do additional subsetting.  I will not have to again remove non-GM12878 so I left this line commented out in the *scATAC_mergedctlsubset.R* script. This worked exactly as it should: I now have 16219 retained rows and the same number of retained columns, 4705.  Here is the subset I performed:
+
+```
+keepcols = (colSums(DHSmatrix) >= 400)
+keeprows = (rowSums(DHSmatrix) >= 150)
+DHSmatrix = subset(DHSmatrix,subset=keeprows,select=keepcols)
+```
+and some edits to the next part of the code because we are now removing rows in this script, whereas indexing wasn't a problem before:
+
+```
+#to create bed coordinates before merging back to original data matrix
+DHSmatrix1 = fread('CtlSetMerged.dhsmatrix.GMfullyreduced.csv',
+             header=F,stringsAsFactors = F,sep =" ")
+DHSmatrix1 = DHSmatrix1[,1:3]
+DHSmatrix1 = subset(DHSmatrix1,subset=keeprows)
+DHSmatrix1 = cbind(DHSmatrix1, rep("+",16219))
+```
+This was done for the file above, *CtlSetMerged.dhsmatrix.GMfullyreduced.csv*, and *CtlSetMerged.dhsmatrix.GMfullyreduced_noHL.csv*; The only difference is the number '16219' in the last line, which is the number of retained rows.
+Also need to check indexing on the merging of sites coordinates with the reduced matrix for the completed and correct matrices (skip=1 in the second fread, and I am not sure why I had to have it like this).
+
+7. In order to produce t-sne and MDS plots of the cell-type mixtures based on cell-type, I took a snippet of code from the *scATAC_mergedctlsubset.R* script to output a vector of the retained barcodes.  Then discovered that somehow the distance matrix had been created for the wrong file: it seems that I made the distance matrix for the GM12878 subset instead of the mixture because there were only 4705 cells; this was probably a mistake in the shell script or R script, which has since been erased.  Had to remake the distance matrix on the server.  So there are currently 3 jobs running on the server to make cell/site distance matrices for GM12878 and HL-60 mixture, GM12878-only with all sites, and GM12878-only with no HL-60 specific sites (except for the mixture I am just making the cell file first).
+
+8. The jobs on the server are complete for creating distance matrices as .RDS files for GM12878-only with all sites and GM12878-only with no HL-60 specific sites.  The mixture is continuining to run.
+
+9. I created a script to produce a NMF model from the *CtlSetMerged.dhsmatrix.GMfullyreduced.csv* matrix.  I was able to cluster and produce an approximated matrix.  So far, this approximated matrix looks like it may be a good candidate for reducing sparsity and producing an "accessibility" score; there are very small numbers but I haven't seen any 0's in the matrix.  I haven't been able to produce a heatmap yet but there should be one soon.
+
+##February 1
+1. Wrote a python script to create a heatmap from the output of **scATAC_NMF_mergedCtl.R**.  The file it takes as input is the reconstructed target matrix from NMF sorted in the order of the NMF clusters. May have to edit NMF script because output heatmap appears to cluster a bit strangely: there are many rows in the heatmap which appear should be clustered together but aren't.  In general, there are identifiable clusters of cells and sites.  Ideally I should use the estimate rank function or cross validation to estimate rank, and in the future I will create this plot with rank = number of modules identified in Cusanovich et al. The following is the plot for GM12878 subtypes clustering including all DHS sites:
+
+![Heatmap of reconstructed target matrix from NMF with rank=4, where rows and columns are sorted according to their cluster membership in NMF. The color range in the heatmap was capped at .2 although the actual entried extended beyond 7.  This was because these large outliers prevented visualization of the clusters using the colors in the map.](/Users/cass/Documents/LeslieLab/NewAnalysis/GM12878subtypes_NMF4.png)
+
+2. Created the NMF heatmap using the same python script.  Used an editted version of the script to be run from command line as follows:
+
+```
+python ../Git_Repo/scATAC-seq/scATAC_NMFheatmap.py CtlSetMerged_DHSmatrix_GM12878only/NoHLSites/CtlSetMerged.dhsmatrix.GMfullyreduced_noHL.NMF4clustered.txt CtlSetMerged_DHSmatrix_GM12878only/NoHLSites/CtlSetMerged.dhsmatrix.GMfullyreduced_noHL.NMF4clustered.png
+```
+
+The resulting heatmap also had identifiable clusters.  I believe that this heatmap is more appropriate then the previous one for more theoretical considerations.  With NMF, it is difficult to compare the results with all sites vs. with no HL-60 specific sites because the heatmap has a different number of features in each case, and so naturally it will not look the same.  I will use t-sne and MDS tomorrow to really assess whether the inclusion of HL-60-specific sites has any non-trivial effect on the performance of clustering.  Below is the heatmap image:
+
+![]()
+
+It should be noted that for this heatmap, I simply used 0 as the the lower limit for the color scale whereas in the previous image I used the minimum value (which was so close to 0 that it hardly matters).  Both images had the upperbound on the color bar set to .2.  This is very noteworthy: this means that any cell with value of .2 or greater is displayed the same (as the dark blue color) on the heatmap.  The rationale for this was that there were outliers that, when included, would make it appear as though the entire heatmap was uniform except for these outliers.  This color scaling allows for an emphasis of small effects between numbers, and makes apparent the clusters in the data.  The value .2 was arbitrarily chosen because the clusters were highly apparent with this parameter.
+
+##February 2nd
+1. I believe that to solve the clustering problem with NMF, I can do two different things: 1) I can cluster the rows according to the row clusters when rank = number of sites in LSA while using the original columns clustering, and 2) I can cluster the rows with simple heirarchical clustering and cluster the columns with the original NMF column clustering.
+
+
+##February 3rd-7th
+1. I realized my script was a little bit too conservative in filtering out sites and cells which are too sparse.  The issue is that in passing the script with some rows already filtered, more columns are removed because fewer rows are there to begin with.  Ideally, the row and columns subsetting should occur simultaneously.  In the future this will be fixed but it should not impact the results.  It just makes my filtering slightly more conservative.  The loss of cells must have been minimal since I still had around the same number of cells in the end as that which was used in the paper.
+
+2. **NMF Results**:  Completed NMF for the following datasets-rank combinations: GM12878 Subtypes (no HL-60 sites) with Ranks 4 and 7, and GM12878/HL-60 Mixture with Rank 2.  
+
+3. **LSA Results**: Completed LSA on GM12878 Subtypes for all DHS sites and without HL-60 sites.  Chose to focus on the set without HL-60 sites for two reasons. One, this is intuitively the more accurate dataset for identifying site clusters across GM12878 subtypes.  Two, the 'row reduced' file for the GM12878 subtype DHS matrix will all sites was somehow deleted, which means I no longer have a mapping between barcodes and columns for this.  I will have to remake this file if I ever want to use this dataset again.
+
+4. Began ChIP-seq transcription factor binding site enrichment in GM12878 subtype site clusters.  I downloaded as a batch all GM12878 ChIP-seq datasets available on ENCODE in the narrow-peak bed format on the server using the following command from ENCODE's website, where 'files.txt' was also generated from their website:
+```
+xargs -n 1 curl -O -L < files.txt
+```
+ I uploaded a bed file onto the server which contains all the non-HL60 sites and their cluster assignments from heirarchical clustering on the LSA matrix reconstructed with components 2-6, as this was the most promising clustering obtained from benchmarking (based on the lack of correlation with read depth among cells).  Cluster membership was extracted using cutree() in R at a height decided by visual inspection to closely match the relative level used in Cusanovich et al. (everything described is in the scATAC_LSA_mergedCtl.R script).  This bed file was intersected with all the ChIP bed files with the following command:
+ 
+```
+bedtools intersect -a CtlSetMerged.dhsmatrix.GMfullyreduced_noHL.SVD2_6_siteclusters.bed -b *.gz -wo -filenames > CtlSetMerged.dhsmatrix.GMfullyreduced_noHL.SVD2_6_siteclusters_CHiP.bed
+```
+
+5. Before beginning GO analysis, noted this excerpt from González et al. 2015 (the paper on early enhancer establishment from Christina's lab):
+
+"The June 2013 RefSeq transcript annotation of the hg19 version of the human genome was used for the genomic location of transcription units. For genes with multiple gene models, the longest transcription unit was used for the gene locus definition. DNase peaks located in the body of the transcription unit, together with the 2-kb regions upstream of the TSS and downstream of the 3′ end, were assigned to the gene. If a peak was found in the overlap of the transcription units of two genes, one of the genes was chosen arbitrarily. Intergenic peaks were assigned to the gene whose TSS or 3′ end was closest to the peak. In this way, each peak was unambiguously assigned to one gene. This approach to associating enhancers with target genes has been used previously"
+
+I will attempt to follow this procedure as closely as possible.
+
+6. Performed GO analysis using the procedure above to assign sites to genes..
+
+##February 8
+1. Found this excerpt online about how to compute "document similarity" with LSA:
+
+"say, you want to determine the similarity between document i and j. take the i-th column of V^t (=d_i) and j-th column of V^t (=d_j)
+
+take the cosine similarity of diag(S)*d_i and diag(S) * d_j
+
+the closer this is to +1, the more they are similar"
+
+It is my suspicion that I can do the "transpose" of this to compute "word similarity" (or in my case, site similarity).  Paper "Using latent semantic analysis to estimate similarity" by Sabrina Simons confirms that cosine difference between each words vector should be used.
