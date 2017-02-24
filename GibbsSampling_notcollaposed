@@ -1,0 +1,124 @@
+#GIBBS SAMPLER USING CRP OF DIRICHLET PROCESS MIXTURE MODEL
+import math
+import numpy as np
+import scipy.misc
+import scipy.stats as stats
+from matplotlib import pyplot as plt
+
+#read in data
+    #store as numpy array where each row contains the data for one cell
+#data = open("/Users/cass/Documents/LeslieLab/CusanovichData_Processed/GSM1647123_GM12878vsHL.dhsmatrix.txt","r")
+#lines=data.readlines()
+
+#data=np.zeros(shape=(len(lines),len(lines[0].split()[3:])))
+#i=0
+#for line in lines:
+#    data[i] = map(int,line.split()[3:]); i+=1
+
+train_csv = open("/Users/cass/Documents/AppliedMachineLearning/HW1/train.csv","r")
+lines = train_csv.readlines()[1:]
+data = np.zeros([len(lines),len(lines[0].split(','))-1])
+
+truth = []; i=0
+for line in lines:
+    data[i] = map(float,line.split(',')[1:])
+    truth.append(line[0])
+    i+=1
+truth = map(int,truth)
+
+#just take a subset
+data = data[0:1000]
+truth = truth[0:1000]
+
+data[np.where(data>=1)]=1
+
+#Gibbs Sampler Functions
+#function to update parameter values
+def update_bernoullip(zs,x):
+    pnew = {}
+    #for a current value of z, update parameters for each cell in the data matrix
+    for j in set(zs):
+        jcells=np.where(zs==j)[0]
+        pnew[j] = np.sum(x[jcells],axis=0)/float(len(jcells))
+    return pnew
+        
+#function to sample from posterior distribution of z given conditional probabilities
+#idea from http://www.hongliangjie.com/2016/03/12/tricks-in-sampling-discrete-distributions-1-sampling-logspace/
+#fix tomorrow
+def sample_z(zvals, z_conditionals):
+    weights = [z_conditionals[0]]
+    for i in range(1,len(z_conditionals)):
+        weights.append(weights[i-1]+z_conditionals[i])
+    U = [np.random.uniform(0,weights[-1])]*len(weights)
+    U = np.subtract(weights,U)
+    return zvals[np.where(U==min(i for i in U if i > 0))[0][0]]
+
+def sample_z_log(zvals, z_conditionals):
+    weights = [z_conditionals[0]]
+    for i in range(1,len(z_conditionals)):
+        weights.append(np.logaddexp(weights[i-1],z_conditionals[i]))
+    U = np.log(np.random.uniform(0,1)) + weights[-1]
+    for k in range(len(zvals)):
+        if U < weights[k]:
+            break
+    return zvals[k]
+
+#function to calculate conditional probabilities of z
+def sample_z(p,zs_minusn,x_minusn,x_n,hyperbeta,hypergamma,hyperalpha):
+    z_conditionals = []; zvals=[]; N=x_minusn.shape[0];
+    #sample auxiliary p for the new class from the beta distribution
+    for j in set(zs_minusn):
+        pnew = []
+        N_minusn_j = len(np.where(zs_minusn==j)[0]);probx1=0;probx2=0
+        for d in range(x_n.shape[0]):
+            pnew.append(np.random.beta(hyperbeta,hypergamma))
+            x = x_n[d]
+            probx1=probx1 + np.log(stats.bernoulli.pmf(x,p[j][d]))
+            probx2= probx1 + np.log(stats.bernoulli.pmf(x,pnew[d]))
+        probz = math.log(N_minusn_j / (float(N) - 1 + hyperalpha))
+        z_conditionals.append(probz+probx1); zvals.append(j)
+    probz = math.log(hyperalpha/(N-1+hyperalpha))
+    z_conditionals.append(probz+probx2); zvals.append(j + 1)
+    weights = [z_conditionals[0]]
+    for i in range(1,len(z_conditionals)):
+        weights.append(np.logaddexp(weights[i-1],z_conditionals[i]))
+    U = np.log(np.random.uniform(0,1)) + weights[-1]
+    for k in range(len(zvals)):
+        if U < weights[k]:
+            break
+    if zvals[k] == j+1:
+        p[j+1]=pnew
+    return zvals[k]
+    
+def sample_p(p,x,z,class_k,hyperbeta,hypergamma,N):
+    kcells=np.where(z==class_k)[0]; x_k = x[kcells]; N_k = len(kcells)
+    for d in range(x_k.shape[1]):
+        sum_xkd=np.sum(x_k[:,d])
+        p[class_k][d] = np.random.beta(hyperbeta+sum_xkd,hypergamma+N_k-sum_xkd)
+    return p[class_k]
+
+#random initialization of z_j's and p_j's 
+z = np.random.choice([1,2,3,4,5,6,7,8,9,10],size=data.shape[0])
+p = {}
+for i in range(1,11):
+    p[i] = [.5]*data.shape[1]
+
+#initialize hyperparameters
+hyperbeta=.5;hypergamma=.5;hyperalpha=10E8
+
+for i in range(50):
+    print i
+    N=data.shape[0]
+    #for each data point
+    for class_i in set(z):
+            #sample p from its posterior
+            p[class_i]=sample_p(p,data,z,class_i,hyperbeta,hypergamma,N)
+    for cell_n in range(data.shape[0]):
+        #unassign data point
+        x_n = data[cell_n]
+        x_minusn = np.concatenate((data[0:cell_n],data[cell_n+1:]),axis=0)
+        zs_minusn = np.concatenate((z[0:cell_n],z[cell_n+1:]))
+        #sample z from its posterior
+        z[cell_n] = sample_z(p,zs_minusn,x_minusn,x_n,hyperbeta,hypergamma,hyperalpha)
+
+displayMNIST(np.array(p[11]))
